@@ -88,7 +88,7 @@ mixed-cycle: make-executable ## Create combined CPU + HTTP cycles
 	  --low-request-count $(REQUEST_LOW_COUNT) \
 	  --wait-for-low-phase
 
-tools: load-generator.sh Makefile ## Package load-generator.sh and Makefile into tools.zip
+tools: ## Package load-generator.sh and Makefile into tools.zip
 	@echo "Creating tools.zip with load-generator.sh and Makefile..."
 	zip --junk-paths tools.zip load-generator.sh Makefile
 
