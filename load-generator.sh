@@ -18,6 +18,7 @@ PRINT_SUMMARY=false
 MODE=
 COMMAND_LABELS=()
 COMMAND_IDS=()
+LAST_COMMAND_ID=
 TEMP_FILES=()
 
 readonly TAG_WEBSERVER_KEY=asg-webserver
@@ -241,7 +242,7 @@ send_ssm_shell_command() {
     --query 'Command.CommandId' \
     --output text)
   record_command_id "$label" "$command_id"
-  printf '%s\n' "$command_id"
+  LAST_COMMAND_ID=$command_id
 }
 
 wait_for_command() {
@@ -290,11 +291,12 @@ run_cpu_phase() {
       "echo started CPU ${phase} phase for cycle ${cycle}")
   fi
 
-  command_id=$(send_ssm_shell_command \
+  send_ssm_shell_command \
     "CPU ${phase} cycle ${cycle}" \
     "Run CPU ${phase} phase for cycle ${cycle}" \
     "$command" \
-    "${target_ids[@]}")
+    "${target_ids[@]}"
+  command_id=$LAST_COMMAND_ID
   wait_for_command "$command_id" "${target_ids[@]}"
   log_step "CPU ${phase} phase ${cycle}/${CYCLES}; load=${load_percent}%; targets=${target_ids[*]}; command=${command_id}"
 }
@@ -319,11 +321,12 @@ timeout ${duration}s ab -n ${request_count} -c ${concurrency} http://${load_bala
 echo completed request ${phase} phase for cycle ${cycle}
 EOF
 )
-  command_id=$(send_ssm_shell_command \
+  send_ssm_shell_command \
     "Requests ${phase} cycle ${cycle}" \
     "Run request ${phase} phase for cycle ${cycle}" \
     "$command" \
-    "$load_generator_instance_id")
+    "$load_generator_instance_id"
+  command_id=$LAST_COMMAND_ID
   log_step "Requests ${phase} phase ${cycle}/${CYCLES}; count=${request_count}; concurrency=${concurrency}; command=${command_id}"
 }
 
@@ -333,19 +336,21 @@ stop_load() {
   local command_id
 
   mapfile -t webserver_ids < <(get_ready_webserver_instance_ids)
-  command_id=$(send_ssm_shell_command \
+  send_ssm_shell_command \
     "Stop CPU stimulus" \
     "Stop CPU stimulus on tagged web servers" \
     "pkill -f '[s]tress-ng --cpu' || true" \
-    "${webserver_ids[@]}")
+    "${webserver_ids[@]}"
+  command_id=$LAST_COMMAND_ID
   wait_for_command "$command_id" "${webserver_ids[@]}"
 
   load_generator_instance_id=$(get_load_generator_instance_id)
-  command_id=$(send_ssm_shell_command \
+  send_ssm_shell_command \
     "Stop request stimulus" \
     "Stop Apache Bench stimulus on the tagged load generator" \
     "pkill -f '(^|/)ab ' || true" \
-    "$load_generator_instance_id")
+    "$load_generator_instance_id"
+  command_id=$LAST_COMMAND_ID
   wait_for_command "$command_id" "$load_generator_instance_id"
   log_step "Stopped CPU and request stimulus"
 }
@@ -375,7 +380,8 @@ verify_remote_command() {
   local command=$3
   local command_id
 
-  command_id=$(send_ssm_shell_command "$label" "$label" "$command" "$instance_id")
+  send_ssm_shell_command "$label" "$label" "$command" "$instance_id"
+  command_id=$LAST_COMMAND_ID
   if ! wait_for_command "$command_id" "$instance_id"; then
     fail "${label} failed on ${instance_id}"
   fi
