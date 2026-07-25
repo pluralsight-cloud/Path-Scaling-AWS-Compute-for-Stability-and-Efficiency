@@ -99,8 +99,7 @@ lab-01: preflight ## Run the Lab 1 stimulus
 	  --low-duration "$(LAB01_CYCLE_LOW)" \
 	  --cpu-load "$(LAB01_CPU_LOAD)" \
 	  --low-cpu-load 0 \
-	  --cpu-workers "$(CPU_WORKERS)" \
-	  --print-summary
+	  --cpu-workers "$(CPU_WORKERS)"
 
 executable: ## Make the shared load generator executable
 	@chmod +x load-generator.sh
