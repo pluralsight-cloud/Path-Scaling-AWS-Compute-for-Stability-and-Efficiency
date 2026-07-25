@@ -452,10 +452,6 @@ preflight() {
   log_step "Apache Bench is available on ${load_generator_instance_id}"
 
   log_step "Preflight passed"
-  printf 'Auto Scaling group: %s\n' "$autoscaling_group_name"
-  printf 'Load balancer: http://%s/\n' "$load_balancer_dns"
-  printf 'Load generator: %s\n' "$load_generator_instance_id"
-  printf 'Web servers: %s\n' "${webserver_ids[*]}"
 }
 
 run_stimulus() {
