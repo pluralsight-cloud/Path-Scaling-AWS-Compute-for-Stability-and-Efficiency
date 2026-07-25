@@ -15,7 +15,7 @@ REQUEST_CYCLE_LOW ?= 120
 REQUEST_LOW_CONCURRENCY ?= 5
 REQUEST_LOW_COUNT ?= 1000
 
-LAB01_CYCLE_COUNT ?= 4
+LAB01_CYCLE_COUNT ?= 2
 LAB01_CYCLE_HIGH ?= 120
 LAB01_CYCLE_LOW ?= 120
 LAB01_CPU_LOAD ?= 90
@@ -106,4 +106,4 @@ executable: ## Make the shared load generator executable
 	@chmod +x load-generator.sh
 
 .PHONY: help preflight stop-load reset-asg cpu-spike cpu-cycle request-spike request-cycle
-.PHONY: mixed-spike mixed-cycle lab-01-misaligned-signals executable
+.PHONY: mixed-spike mixed-cycle lab-01 executable
