@@ -392,44 +392,64 @@ preflight() {
   local all_webserver_ids_output
   local load_generator_status
 
+  log_step "Starting preflight checks"
+  log_step "Verifying AWS credentials and active account"
   aws sts get-caller-identity --query Arn --output text >/dev/null
+
+  log_step "Discovering tagged lab resources"
   autoscaling_group_name=$(get_autoscaling_group_name)
   load_balancer_arn=$(get_load_balancer_arn)
   load_balancer_dns=$(get_load_balancer_dns_name)
   load_generator_instance_id=$(get_load_generator_instance_id)
+  log_step "Found Auto Scaling group ${autoscaling_group_name}"
+  log_step "Found Application Load Balancer ${load_balancer_dns}"
+  log_step "Found load generator ${load_generator_instance_id}"
 
+  log_step "Verifying the Application Load Balancer is active"
   load_balancer_state=$(aws elbv2 describe-load-balancers \
     --load-balancer-arns "$load_balancer_arn" \
     --query 'LoadBalancers[0].State.Code' \
     --output text)
   [[ "$load_balancer_state" == active ]] ||
     fail "the tagged load balancer is not active; state=${load_balancer_state}"
+  log_step "Verifying the Application Load Balancer returns a successful response"
   curl --fail --silent --show-error --max-time 10 "http://${load_balancer_dns}/" >/dev/null ||
     fail "the tagged load balancer did not return a successful response"
+  log_step "Application Load Balancer is active and reachable"
 
+  log_step "Discovering tagged web-server instances"
   all_webserver_ids_output=$(get_webserver_instance_ids)
   if [[ -n "$all_webserver_ids_output" && "$all_webserver_ids_output" != None ]]; then
     read -r -a all_webserver_ids <<<"$all_webserver_ids_output"
   fi
+  log_step "Verifying tagged web-server instances are online in Systems Manager"
   mapfile -t webserver_ids < <(get_ready_webserver_instance_ids)
   ((${#webserver_ids[@]} == ${#all_webserver_ids[@]})) ||
     fail "not all tagged web-server instances are online in Systems Manager"
+  log_step "Web servers online in Systems Manager: ${webserver_ids[*]}"
 
+  log_step "Verifying load generator is online in Systems Manager"
   load_generator_status=$(aws ssm describe-instance-information \
     --filters "Key=InstanceIds,Values=${load_generator_instance_id}" \
     --query 'InstanceInformationList[0].PingStatus' \
     --output text)
   [[ "$load_generator_status" == Online ]] ||
     fail "the tagged load generator is not online in Systems Manager"
+  log_step "Load generator is online in Systems Manager"
 
+  log_step "Verifying stress-ng on ${webserver_ids[0]}"
   verify_remote_command \
     "Verify stress-ng" \
     "${webserver_ids[0]}" \
     "command -v stress-ng >/dev/null"
+  log_step "stress-ng is available on ${webserver_ids[0]}"
+
+  log_step "Verifying Apache Bench on ${load_generator_instance_id}"
   verify_remote_command \
     "Verify Apache Bench" \
     "$load_generator_instance_id" \
     "command -v ab >/dev/null"
+  log_step "Apache Bench is available on ${load_generator_instance_id}"
 
   log_step "Preflight passed"
   printf 'Auto Scaling group: %s\n' "$autoscaling_group_name"
