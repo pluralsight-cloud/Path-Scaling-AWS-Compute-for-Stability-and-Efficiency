@@ -10,6 +10,7 @@ CPU_LOAD=85
 LOW_CPU_LOAD=5
 CPU_WORKERS=0
 REQUEST_COUNT=500000
+REQUEST_RATE=0
 HIGH_CONCURRENCY=300
 LOW_CONCURRENCY=5
 LOW_REQUEST_COUNT=1000
@@ -67,6 +68,8 @@ Options:
   --low-cpu-load PERCENT       CPU load during low phases; 0 is idle. Default: 5.
   --cpu-workers COUNT          stress-ng workers; 0 uses all CPUs. Default: 0.
   --request-count COUNT        Requests in each high phase. Default: 500000.
+  --request-rate RATE          Send requests at an approximate fixed rate per second.
+                               A value of 0 uses Apache Bench. Default: 0.
   --high-concurrency COUNT     Apache Bench high-phase concurrency. Default: 300.
   --low-concurrency COUNT      Apache Bench low-phase concurrency. Default: 5.
   --low-request-count COUNT    Requests in each low request phase. Default: 1000.
@@ -311,23 +314,33 @@ run_request_phase() {
   local load_balancer_dns
   local command_id
   local command
+  local request_interval
 
   load_generator_instance_id=$(get_load_generator_instance_id)
   load_balancer_dns=$(get_load_balancer_dns_name)
-  command=$(cat <<EOF
+  if ((REQUEST_RATE > 0)); then
+    request_interval=$(awk -v rate="$REQUEST_RATE" 'BEGIN { printf "%.3f", 1 / rate }')
+    command=$(printf '%s\n' \
+      "set -euo pipefail" \
+      "pkill -f '[l]ab-request-rate' || true" \
+      "timeout ${duration}s bash -c 'while true; do curl -s -o /dev/null http://${load_balancer_dns}/; sleep ${request_interval}; done' lab-request-rate || true" \
+      "echo completed request ${phase} phase for cycle ${cycle}")
+  else
+    command=$(cat <<EOF
 set -euo pipefail
 pkill -f '(^|/)ab ' || true
 timeout ${duration}s ab -n ${request_count} -c ${concurrency} http://${load_balancer_dns}/ >/tmp/ab-${cycle}-${phase}.log 2>&1 || true
 echo completed request ${phase} phase for cycle ${cycle}
 EOF
 )
+  fi
   send_ssm_shell_command \
     "Requests ${phase} cycle ${cycle}" \
     "Run request ${phase} phase for cycle ${cycle}" \
     "$command" \
     "$load_generator_instance_id"
   command_id=$LAST_COMMAND_ID
-  log_step "Requests ${phase} phase ${cycle}/${CYCLES}; count=${request_count}; concurrency=${concurrency}; command=${command_id}"
+  log_step "Requests ${phase} phase ${cycle}/${CYCLES}; count=${request_count}; rate=${REQUEST_RATE}/s; concurrency=${concurrency}; command=${command_id}"
 }
 
 stop_load() {
@@ -348,7 +361,7 @@ stop_load() {
   send_ssm_shell_command \
     "Stop request stimulus" \
     "Stop Apache Bench stimulus on the tagged load generator" \
-    "pkill -f '(^|/)ab ' || true" \
+    "pkill -f '(^|/)ab ' || true; pkill -f '[l]ab-request-rate' || true" \
     "$load_generator_instance_id"
   command_id=$LAST_COMMAND_ID
   wait_for_command "$command_id" "$load_generator_instance_id"
@@ -463,7 +476,7 @@ preflight() {
 run_stimulus() {
   local cycle
 
-  log_step "Configuration: cycles=${CYCLES}, high=${HIGH_DURATION}s, low=${LOW_DURATION}s, cpu=${RUN_CPU}, requests=${RUN_REQUESTS}, cpu_load=${CPU_LOAD}, low_cpu_load=${LOW_CPU_LOAD}, cpu_workers=${CPU_WORKERS}, high_concurrency=${HIGH_CONCURRENCY}, low_concurrency=${LOW_CONCURRENCY}"
+  log_step "Configuration: cycles=${CYCLES}, high=${HIGH_DURATION}s, low=${LOW_DURATION}s, cpu=${RUN_CPU}, requests=${RUN_REQUESTS}, cpu_load=${CPU_LOAD}, low_cpu_load=${LOW_CPU_LOAD}, cpu_workers=${CPU_WORKERS}, request_rate=${REQUEST_RATE}/s, high_concurrency=${HIGH_CONCURRENCY}, low_concurrency=${LOW_CONCURRENCY}"
   for ((cycle = 1; cycle <= CYCLES; cycle++)); do
     log_step "Starting high phase ${cycle}/${CYCLES}"
     if [[ "$RUN_CPU" == true ]]; then
@@ -541,6 +554,10 @@ while (($# > 0)); do
       REQUEST_COUNT=$2
       shift 2
       ;;
+    --request-rate)
+      REQUEST_RATE=$2
+      shift 2
+      ;;
     --high-concurrency)
       HIGH_CONCURRENCY=$2
       shift 2
@@ -578,6 +595,7 @@ require_positive_integer cpu-load "$CPU_LOAD"
 require_nonnegative_integer low-cpu-load "$LOW_CPU_LOAD"
 require_nonnegative_integer cpu-workers "$CPU_WORKERS"
 require_positive_integer request-count "$REQUEST_COUNT"
+require_nonnegative_integer request-rate "$REQUEST_RATE"
 require_positive_integer high-concurrency "$HIGH_CONCURRENCY"
 require_positive_integer low-concurrency "$LOW_CONCURRENCY"
 require_positive_integer low-request-count "$LOW_REQUEST_COUNT"

@@ -20,6 +20,14 @@ LAB01_CYCLE_HIGH ?= 120
 LAB01_CYCLE_LOW ?= 120
 LAB01_CPU_LOAD ?= 90
 
+LAB02_CPU_CYCLE_COUNT ?= 2
+LAB02_CPU_CYCLE_HIGH ?= 120
+LAB02_CPU_CYCLE_LOW ?= 120
+LAB02_CPU_LOAD ?= 90
+LAB02_REQUEST_RATE ?= 10
+LAB02_REQUEST_HIGH ?= 360
+LAB02_REQUEST_LOW ?= 420
+
 .DEFAULT_GOAL := help
 
 help: ## Display available tooling and lab targets
@@ -101,8 +109,24 @@ lab-01: preflight ## Run the Lab 1 stimulus
 	  --low-cpu-load 0 \
 	  --cpu-workers "$(CPU_WORKERS)"
 
+lab-02-cpu: preflight ## Run the Lab 2 CPU-only stimulus
+	./load-generator.sh --cpu \
+	  --cycles "$(LAB02_CPU_CYCLE_COUNT)" \
+	  --high-duration "$(LAB02_CPU_CYCLE_HIGH)" \
+	  --low-duration "$(LAB02_CPU_CYCLE_LOW)" \
+	  --cpu-load "$(LAB02_CPU_LOAD)" \
+	  --low-cpu-load 0 \
+	  --cpu-workers "$(CPU_WORKERS)"
+
+lab-02-requests: preflight ## Run the bounded Lab 2 customer-request stimulus
+	./load-generator.sh --requests \
+	  --request-rate "$(LAB02_REQUEST_RATE)" \
+	  --cycles 1 \
+	  --high-duration "$(LAB02_REQUEST_HIGH)" \
+	  --low-duration "$(LAB02_REQUEST_LOW)"
+
 executable: ## Make the shared load generator executable
 	@chmod +x load-generator.sh
 
 .PHONY: help preflight stop-load reset-asg cpu-spike cpu-cycle request-spike request-cycle
-.PHONY: mixed-spike mixed-cycle lab-01 executable
+.PHONY: mixed-spike mixed-cycle lab-01 lab-02-cpu lab-02-requests executable
