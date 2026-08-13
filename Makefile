@@ -20,13 +20,15 @@ LAB01_CYCLE_HIGH ?= 120
 LAB01_CYCLE_LOW ?= 120
 LAB01_CPU_LOAD ?= 90
 
-LAB02_CPU_CYCLE_COUNT ?= 2
-LAB02_CPU_CYCLE_HIGH ?= 120
-LAB02_CPU_CYCLE_LOW ?= 120
+LAB02_CPU_CYCLE_COUNT ?= 1
+LAB02_CPU_CYCLE_HIGH ?= 180
+LAB02_CPU_CYCLE_LOW ?= 60
 LAB02_CPU_LOAD ?= 90
-LAB02_REQUEST_RATE ?= 10
-LAB02_REQUEST_HIGH ?= 360
-LAB02_REQUEST_LOW ?= 420
+LAB02_REQUEST_RATE ?= 300
+LAB02_REQUEST_RATE_MULTIPLIERS ?= 3 5 7
+LAB02_REQUEST_CYCLE_COUNT ?= 3
+LAB02_REQUEST_HIGH ?= 180
+LAB02_REQUEST_LOW ?= 0
 
 .DEFAULT_GOAL := help
 
@@ -112,16 +114,17 @@ lab-01: preflight ## Run the Lab 1 stimulus
 lab-02-cpu: preflight ## Run the Lab 2 CPU-only stimulus
 	./load-generator.sh --cpu \
 	  --cycles "$(LAB02_CPU_CYCLE_COUNT)" \
-	  --high-duration "$(LAB02_CPU_CYCLE_HIGH)" \
-	  --low-duration "$(LAB02_CPU_CYCLE_LOW)" \
+	  --high-duration "$(LAB02_CYCLE_HIGH)" \
+	  --low-duration "$(LAB02_CYCLE_LOW)" \
 	  --cpu-load "$(LAB02_CPU_LOAD)" \
-	  --low-cpu-load 0 \
+	  --low-cpu-load "$(LOW_CPU_LOAD)" \
 	  --cpu-workers "$(CPU_WORKERS)"
 
-lab-02-requests: preflight ## Run the bounded Lab 2 customer-request stimulus
+lab-02-requests: preflight ## Run the Lab 2 customer-request stimulus
 	./load-generator.sh --requests \
 	  --request-rate "$(LAB02_REQUEST_RATE)" \
-	  --cycles 1 \
+	  --request-rate-multipliers "$(LAB02_REQUEST_RATE_MULTIPLIERS)" \
+	  --cycles "$(LAB02_REQUEST_CYCLE_COUNT)" \
 	  --high-duration "$(LAB02_REQUEST_HIGH)" \
 	  --low-duration "$(LAB02_REQUEST_LOW)"
 

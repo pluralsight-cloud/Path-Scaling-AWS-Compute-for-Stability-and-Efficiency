@@ -11,6 +11,7 @@ LOW_CPU_LOAD=5
 CPU_WORKERS=0
 REQUEST_COUNT=500000
 REQUEST_RATE=0
+REQUEST_RATE_MULTIPLIERS=()
 HIGH_CONCURRENCY=300
 LOW_CONCURRENCY=5
 LOW_REQUEST_COUNT=1000
@@ -70,6 +71,8 @@ Options:
   --request-count COUNT        Requests in each high phase. Default: 500000.
   --request-rate RATE          Send requests at an approximate fixed rate per second.
                                A value of 0 uses Apache Bench. Default: 0.
+  --request-rate-multipliers "N ..."
+                               Multiply the request rate by N for each successive cycle.
   --high-concurrency COUNT     Apache Bench high-phase concurrency. Default: 300.
   --low-concurrency COUNT      Apache Bench low-phase concurrency. Default: 5.
   --low-request-count COUNT    Requests in each low request phase. Default: 1000.
@@ -475,9 +478,13 @@ preflight() {
 
 run_stimulus() {
   local cycle
+  local request_rate_base=$REQUEST_RATE
 
-  log_step "Configuration: cycles=${CYCLES}, high=${HIGH_DURATION}s, low=${LOW_DURATION}s, cpu=${RUN_CPU}, requests=${RUN_REQUESTS}, cpu_load=${CPU_LOAD}, low_cpu_load=${LOW_CPU_LOAD}, cpu_workers=${CPU_WORKERS}, request_rate=${REQUEST_RATE}/s, high_concurrency=${HIGH_CONCURRENCY}, low_concurrency=${LOW_CONCURRENCY}"
+  log_step "Configuration: cycles=${CYCLES}, high=${HIGH_DURATION}s, low=${LOW_DURATION}s, cpu=${RUN_CPU}, requests=${RUN_REQUESTS}, cpu_load=${CPU_LOAD}, low_cpu_load=${LOW_CPU_LOAD}, cpu_workers=${CPU_WORKERS}, request_rate=${REQUEST_RATE}/s, request_rate_multipliers=${REQUEST_RATE_MULTIPLIERS[*]:-none}, high_concurrency=${HIGH_CONCURRENCY}, low_concurrency=${LOW_CONCURRENCY}"
   for ((cycle = 1; cycle <= CYCLES; cycle++)); do
+    if ((${#REQUEST_RATE_MULTIPLIERS[@]} > 0)); then
+      REQUEST_RATE=$((request_rate_base * REQUEST_RATE_MULTIPLIERS[cycle - 1]))
+    fi
     log_step "Starting high phase ${cycle}/${CYCLES}"
     if [[ "$RUN_CPU" == true ]]; then
       run_cpu_phase "$cycle" high "$HIGH_DURATION" "$CPU_LOAD"
@@ -487,14 +494,16 @@ run_stimulus() {
     fi
     sleep "$HIGH_DURATION"
 
-    log_step "Starting low phase ${cycle}/${CYCLES}"
-    if [[ "$RUN_CPU" == true ]]; then
-      run_cpu_phase "$cycle" low "$LOW_DURATION" "$LOW_CPU_LOAD"
+    if ((LOW_DURATION > 0)); then
+      log_step "Starting low phase ${cycle}/${CYCLES}"
+      if [[ "$RUN_CPU" == true ]]; then
+        run_cpu_phase "$cycle" low "$LOW_DURATION" "$LOW_CPU_LOAD"
+      fi
+      if [[ "$RUN_REQUESTS" == true && "$WAIT_FOR_LOW_PHASE" == true ]]; then
+        run_request_phase "$cycle" low "$LOW_DURATION" "$LOW_REQUEST_COUNT" "$LOW_CONCURRENCY"
+      fi
+      sleep "$LOW_DURATION"
     fi
-    if [[ "$RUN_REQUESTS" == true && "$WAIT_FOR_LOW_PHASE" == true ]]; then
-      run_request_phase "$cycle" low "$LOW_DURATION" "$LOW_REQUEST_COUNT" "$LOW_CONCURRENCY"
-    fi
-    sleep "$LOW_DURATION"
   done
   log_step "Stimulus complete"
 }
@@ -558,6 +567,10 @@ while (($# > 0)); do
       REQUEST_RATE=$2
       shift 2
       ;;
+    --request-rate-multipliers)
+      read -r -a REQUEST_RATE_MULTIPLIERS <<<"$2"
+      shift 2
+      ;;
     --high-concurrency)
       HIGH_CONCURRENCY=$2
       shift 2
@@ -590,12 +603,19 @@ done
 
 require_positive_integer cycles "$CYCLES"
 require_positive_integer high-duration "$HIGH_DURATION"
-require_positive_integer low-duration "$LOW_DURATION"
+require_nonnegative_integer low-duration "$LOW_DURATION"
 require_positive_integer cpu-load "$CPU_LOAD"
 require_nonnegative_integer low-cpu-load "$LOW_CPU_LOAD"
 require_nonnegative_integer cpu-workers "$CPU_WORKERS"
 require_positive_integer request-count "$REQUEST_COUNT"
 require_nonnegative_integer request-rate "$REQUEST_RATE"
+if ((${#REQUEST_RATE_MULTIPLIERS[@]} > 0)); then
+  ((${#REQUEST_RATE_MULTIPLIERS[@]} == CYCLES)) ||
+    fail "request-rate-multipliers must contain one multiplier per cycle"
+  for multiplier in "${REQUEST_RATE_MULTIPLIERS[@]}"; do
+    require_positive_integer request-rate-multiplier "$multiplier"
+  done
+fi
 require_positive_integer high-concurrency "$HIGH_CONCURRENCY"
 require_positive_integer low-concurrency "$LOW_CONCURRENCY"
 require_positive_integer low-request-count "$LOW_REQUEST_COUNT"
