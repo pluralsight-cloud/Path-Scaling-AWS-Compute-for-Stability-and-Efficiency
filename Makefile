@@ -22,10 +22,10 @@ LAB01_CPU_LOAD ?= 90
 
 LAB02_CPU_CYCLE_COUNT ?= 1
 LAB02_CPU_CYCLE_HIGH ?= 180
-LAB02_CPU_CYCLE_LOW ?= 60
+LAB02_CPU_CYCLE_LOW ?= 0
 LAB02_CPU_LOAD ?= 90
-LAB02_REQUEST_RATE ?= 300
-LAB02_REQUEST_RATE_MULTIPLIERS ?= 3 5 7
+LAB02_REQUEST_RATE ?= 10
+LAB02_REQUEST_RATE_MULTIPLIERS ?= 1 2 3
 LAB02_REQUEST_CYCLE_COUNT ?= 3
 LAB02_REQUEST_HIGH ?= 180
 LAB02_REQUEST_LOW ?= 0
@@ -114,8 +114,8 @@ lab-01: preflight ## Run the Lab 1 stimulus
 lab-02-cpu: preflight ## Run the Lab 2 CPU-only stimulus
 	./load-generator.sh --cpu \
 	  --cycles "$(LAB02_CPU_CYCLE_COUNT)" \
-	  --high-duration "$(LAB02_CYCLE_HIGH)" \
-	  --low-duration "$(LAB02_CYCLE_LOW)" \
+	  --high-duration "$(LAB02_CPU_CYCLE_HIGH)" \
+	  --low-duration "$(LAB02_CPU_CYCLE_LOW)" \
 	  --cpu-load "$(LAB02_CPU_LOAD)" \
 	  --low-cpu-load "$(LOW_CPU_LOAD)" \
 	  --cpu-workers "$(CPU_WORKERS)"
