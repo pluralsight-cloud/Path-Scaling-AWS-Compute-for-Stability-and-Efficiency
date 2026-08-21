@@ -20,6 +20,7 @@ LAB01_CYCLE_HIGH ?= 120
 LAB01_CYCLE_LOW ?= 120
 LAB01_CPU_LOAD ?= 90
 
+# These values are used in Lab 2 and Lab 3 to generate CPU and request load
 LAB02_CPU_CYCLE_COUNT ?= 1
 LAB02_CPU_CYCLE_HIGH ?= 180
 LAB02_CPU_CYCLE_LOW ?= 0
@@ -30,10 +31,8 @@ LAB02_REQUEST_CYCLE_COUNT ?= 4
 LAB02_REQUEST_HIGH ?= 180
 LAB02_REQUEST_LOW ?= 0
 
-LAB03_CPU_DURATION ?= 180
 LAB03_TRANSIENT_OBSERVATION ?= 120
 LAB03_SUSTAINED_ERROR_RATE ?= 1
-LAB03_SUSTAINED_ERROR_DURATION ?= 180
 
 .DEFAULT_GOAL := help
 
@@ -133,29 +132,16 @@ lab-02-requests: preflight ## Run the Lab 2 customer-request stimulus
 	  --high-duration "$(LAB02_REQUEST_HIGH)" \
 	  --low-duration "$(LAB02_REQUEST_LOW)"
 
-lab-03-scaling: preflight ## Run expected Lab 3 request-driven scaling
-	./load-generator.sh --requests \
-	  --request-rate "$(LAB02_REQUEST_RATE)" \
-	  --request-rate-multipliers "$(LAB02_REQUEST_RATE_MULTIPLIERS)" \
-	  --cycles "$(LAB02_REQUEST_CYCLE_COUNT)" \
-	  --high-duration "$(LAB02_REQUEST_HIGH)" \
-	  --low-duration "$(LAB02_REQUEST_LOW)"
+lab-03-cpu: preflight lab-02-cpu ## Run Lab 3 CPU-only stimulus
 
-lab-03-cpu: preflight ## Run CPU-only activity against disabled CPU policies
-	./load-generator.sh --cpu \
-	  --cycles 1 \
-	  --high-duration "$(LAB03_CPU_DURATION)" \
-	  --low-duration 0 \
-	  --cpu-load "$(LAB02_CPU_LOAD)" \
-	  --low-cpu-load 0 \
-	  --cpu-workers "$(CPU_WORKERS)"
+lab-03-requests: preflight lab-02-requests ## Run the Lab 3 customer-request stimulus
 
 lab-03-transient-errors: preflight ## Send one target error and observe alarm recovery
 	./load-generator.sh --requests 1 \
 	  --request-path /error \
 	  --cycles 1 \
 	  --high-duration "$(LAB03_TRANSIENT_OBSERVATION)" \
-	  --low-duration 0 \
+	  --low-duration "$(LAB02_REQUEST_LOW)" \
 	  --high-concurrency 1
 
 lab-03-sustained-errors: preflight ## Generate sustained target errors below the scaling threshold
@@ -163,8 +149,8 @@ lab-03-sustained-errors: preflight ## Generate sustained target errors below the
 	  --request-path /error \
 	  --request-rate "$(LAB03_SUSTAINED_ERROR_RATE)" \
 	  --cycles 1 \
-	  --high-duration "$(LAB03_SUSTAINED_ERROR_DURATION)" \
-	  --low-duration 0
+	  --high-duration "$(LAB02_REQUEST_HIGH)" \
+	  --low-duration "$(LAB02_REQUEST_LOW)"
 
 executable: ## Make the shared load generator executable
 	@chmod +x load-generator.sh
