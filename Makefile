@@ -38,16 +38,16 @@ LAB03_SUSTAINED_ERROR_RATE ?= 1
 help: ## Display available tooling and lab targets
 	@awk 'BEGIN {FS = ":.*## "}; /^[a-zA-Z0-9_-]+:.*## / {printf "\033[36m%-28s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-preflight: executable ## Verify tagged lab resources and required software
+preflight: _executable ## Verify tagged lab resources and required software
 	./load-generator.sh --preflight
 
-stop-load: executable ## Stop active CPU and request stimulus
+stop-load: _executable ## Stop active CPU and request stimulus
 	./load-generator.sh --stop-load
 
-reset-asg: executable ## Stop stimulus and reset the tagged ASG to minimum capacity
+reset-asg: _executable ## Stop stimulus and reset the tagged ASG to minimum capacity
 	./load-generator.sh --reset-asg
 
-cpu-spike: executable ## Create one CPU spike
+cpu-spike: _executable ## Create one CPU spike
 	./load-generator.sh --cpu \
 	  --cycles 1 \
 	  --high-duration "$(DURATION)" \
@@ -56,7 +56,7 @@ cpu-spike: executable ## Create one CPU spike
 	  --low-cpu-load "$(LOW_CPU_LOAD)" \
 	  --cpu-workers "$(CPU_WORKERS)"
 
-cpu-cycle: executable ## Create repeated CPU high/low cycles
+cpu-cycle: _executable ## Create repeated CPU high/low cycles
 	./load-generator.sh --cpu \
 	  --cycles "$(CPU_CYCLE_COUNT)" \
 	  --high-duration "$(CPU_CYCLE_HIGH)" \
@@ -65,14 +65,14 @@ cpu-cycle: executable ## Create repeated CPU high/low cycles
 	  --low-cpu-load "$(LOW_CPU_LOAD)" \
 	  --cpu-workers "$(CPU_WORKERS)"
 
-request-spike: executable ## Create one HTTP request spike
+request-spike: _executable ## Create one HTTP request spike
 	./load-generator.sh --requests "$(REQUESTS)" \
 	  --cycles 1 \
 	  --high-duration "$(DURATION)" \
 	  --low-duration 60 \
 	  --high-concurrency "$(CONCURRENCY)"
 
-request-cycle: executable ## Create repeated HTTP request high/low cycles
+request-cycle: _executable ## Create repeated HTTP request high/low cycles
 	./load-generator.sh --requests "$(REQUESTS)" \
 	  --cycles "$(REQUEST_CYCLE_COUNT)" \
 	  --high-duration "$(REQUEST_CYCLE_HIGH)" \
@@ -82,7 +82,7 @@ request-cycle: executable ## Create repeated HTTP request high/low cycles
 	  --low-request-count "$(REQUEST_LOW_COUNT)" \
 	  --wait-for-low-phase
 
-mixed-spike: executable ## Create one combined CPU and HTTP spike
+mixed-spike: _executable ## Create one combined CPU and HTTP spike
 	./load-generator.sh --cpu --requests "$(REQUESTS)" \
 	  --cycles 1 \
 	  --high-duration "$(DURATION)" \
@@ -92,7 +92,7 @@ mixed-spike: executable ## Create one combined CPU and HTTP spike
 	  --cpu-workers "$(CPU_WORKERS)" \
 	  --high-concurrency "$(CONCURRENCY)"
 
-mixed-cycle: executable ## Create repeated combined CPU and HTTP cycles
+mixed-cycle: _executable ## Create repeated combined CPU and HTTP cycles
 	./load-generator.sh --cpu --requests "$(REQUESTS)" \
 	  --cycles "$(REQUEST_CYCLE_COUNT)" \
 	  --high-duration "$(REQUEST_CYCLE_HIGH)" \
@@ -143,7 +143,7 @@ lab-03-sustained-errors: preflight ## Generate sustained target errors below the
 	  --high-duration "$(LAB02_REQUEST_HIGH)" \
 	  --low-duration "$(LAB02_REQUEST_LOW)"
 
-executable: ## Make the shared load generator executable
+_executable:
 	@chmod +x load-generator.sh
 
 .PHONY: help preflight stop-load reset-asg cpu-spike cpu-cycle request-spike request-cycle
