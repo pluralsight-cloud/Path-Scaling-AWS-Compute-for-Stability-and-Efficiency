@@ -31,7 +31,6 @@ LAB02_REQUEST_CYCLE_COUNT ?= 4
 LAB02_REQUEST_HIGH ?= 180
 LAB02_REQUEST_LOW ?= 0
 
-LAB03_TRANSIENT_OBSERVATION ?= 120
 LAB03_SUSTAINED_ERROR_RATE ?= 1
 
 .DEFAULT_GOAL := help
@@ -132,17 +131,9 @@ lab-02-requests: preflight ## Run the Lab 2 customer-request stimulus
 	  --high-duration "$(LAB02_REQUEST_HIGH)" \
 	  --low-duration "$(LAB02_REQUEST_LOW)"
 
-lab-03-cpu: preflight lab-02-cpu ## Run Lab 3 CPU-only stimulus
+lab-03-cpu: lab-02-cpu ## Run Lab 3 CPU-only stimulus
 
-lab-03-requests: preflight lab-02-requests ## Run the Lab 3 customer-request stimulus
-
-lab-03-transient-errors: preflight ## Send one target error and observe alarm recovery
-	./load-generator.sh --requests 1 \
-	  --request-path /error \
-	  --cycles 1 \
-	  --high-duration "$(LAB03_TRANSIENT_OBSERVATION)" \
-	  --low-duration "$(LAB02_REQUEST_LOW)" \
-	  --high-concurrency 1
+lab-03-requests: lab-02-requests ## Run the Lab 3 customer-request stimulus
 
 lab-03-sustained-errors: preflight ## Generate sustained target errors below the scaling threshold
 	./load-generator.sh --requests \
@@ -157,4 +148,4 @@ executable: ## Make the shared load generator executable
 
 .PHONY: help preflight stop-load reset-asg cpu-spike cpu-cycle request-spike request-cycle
 .PHONY: mixed-spike mixed-cycle lab-01 lab-02-cpu lab-02-requests
-.PHONY: lab-03-scaling lab-03-cpu lab-03-transient-errors lab-03-sustained-errors executable
+.PHONY: lab-03-requests lab-03-cpu lab-03-sustained-errors executable
