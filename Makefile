@@ -20,7 +20,7 @@ LAB01_CYCLE_HIGH ?= 120
 LAB01_CYCLE_LOW ?= 120
 LAB01_CPU_LOAD ?= 90
 
-# These values are used in Lab 2 and Lab 3 to generate CPU and request load
+# These values are used in Labs 2, 3, and 4 to generate CPU and request load
 LAB02_CPU_CYCLE_COUNT ?= 1
 LAB02_CPU_CYCLE_HIGH ?= 180
 LAB02_CPU_CYCLE_LOW ?= 0
@@ -143,9 +143,16 @@ lab-03-sustained-errors: preflight ## Generate sustained target errors below the
 	  --high-duration "$(LAB02_REQUEST_HIGH)" \
 	  --low-duration "$(LAB02_REQUEST_LOW)"
 
+lab-04-cpu: lab-02-cpu ## Run Lab 4 CPU-only stimulus
+
+lab-04-requests: lab-02-requests ## Run the Lab 4 customer-request stimulus
+
+lab-04-sustained-errors: lab-03-sustained-errors ## Run Lab 4 sustained target errors below the scaling threshold
+
 _executable:
 	@chmod +x load-generator.sh
 
 .PHONY: help preflight stop-load reset-asg cpu-spike cpu-cycle request-spike request-cycle
 .PHONY: mixed-spike mixed-cycle lab-01 lab-02-cpu lab-02-requests
 .PHONY: lab-03-requests lab-03-cpu lab-03-sustained-errors executable
+.PHONY: lab-04-requests lab-04-cpu lab-04-sustained-errors
