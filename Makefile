@@ -33,6 +33,13 @@ LAB02_REQUEST_LOW ?= 0
 
 LAB03_SUSTAINED_ERROR_RATE ?= 1
 
+# Lab 05 sends steady, modest demand just over the request scale-out threshold
+LAB05_REQUEST_RATE ?= 20
+LAB05_REQUEST_RATE_MULTIPLIERS ?= 1 1 1 1
+LAB05_REQUEST_CYCLE_COUNT ?= 4
+LAB05_REQUEST_HIGH ?= 180
+LAB05_REQUEST_LOW ?= 0
+
 .DEFAULT_GOAL := help
 
 help: ## Display available tooling and lab targets
@@ -149,6 +156,14 @@ lab-04-requests: lab-02-requests ## Run the Lab 4 customer-request stimulus
 
 lab-04-sustained-errors: lab-03-sustained-errors ## Run Lab 4 sustained target errors below the scaling threshold
 
+lab-05-requests: preflight ## Run the Lab 5 steady modest-demand request stimulus
+	./load-generator.sh --requests \
+	  --request-rate "$(LAB05_REQUEST_RATE)" \
+	  --request-rate-multipliers "$(LAB05_REQUEST_RATE_MULTIPLIERS)" \
+	  --cycles "$(LAB05_REQUEST_CYCLE_COUNT)" \
+	  --high-duration "$(LAB05_REQUEST_HIGH)" \
+	  --low-duration "$(LAB05_REQUEST_LOW)"
+
 _executable:
 	@chmod +x load-generator.sh
 
@@ -156,3 +171,4 @@ _executable:
 .PHONY: mixed-spike mixed-cycle lab-01 lab-02-cpu lab-02-requests
 .PHONY: lab-03-requests lab-03-cpu lab-03-sustained-errors executable
 .PHONY: lab-04-requests lab-04-cpu lab-04-sustained-errors
+.PHONY: lab-05-requests
