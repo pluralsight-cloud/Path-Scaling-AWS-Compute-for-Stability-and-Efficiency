@@ -371,7 +371,7 @@ stop_load() {
     "$load_generator_instance_id"
   command_id=$LAST_COMMAND_ID
   wait_for_command "$command_id" "$load_generator_instance_id"
-  log_step "Stopped CPU and request stimulus"
+  log_step "Stopped all application stimulus"
 }
 
 reset_autoscaling_group() {
