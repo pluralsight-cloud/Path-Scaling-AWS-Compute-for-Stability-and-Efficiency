@@ -13,6 +13,7 @@ REQUEST_COUNT=500000
 REQUEST_RATE=0
 REQUEST_RATE_MULTIPLIERS=()
 REQUEST_PATH=/
+ERROR_FRACTION=0
 HIGH_CONCURRENCY=300
 LOW_CONCURRENCY=5
 LOW_REQUEST_COUNT=1000
@@ -75,6 +76,9 @@ Options:
   --request-rate-multipliers "N ..."
                                Multiply the request rate by N for each successive cycle.
   --request-path PATH          ALB request path beginning with /. Default: /.
+  --error-fraction PERCENT     In request-rate mode, send this percent of requests to
+                               /error to sustain a target 5xx error rate. 0 disables.
+                               Default: 0.
   --high-concurrency COUNT     Apache Bench high-phase concurrency. Default: 300.
   --low-concurrency COUNT      Apache Bench low-phase concurrency. Default: 5.
   --low-request-count COUNT    Requests in each low request phase. Default: 1000.
@@ -326,11 +330,22 @@ run_request_phase() {
   load_balancer_dns=$(get_load_balancer_dns_name)
   if ((REQUEST_RATE > 0)); then
     request_interval=$(awk -v rate="$REQUEST_RATE" 'BEGIN { printf "%.3f", 1 / rate }')
-    command=$(printf '%s\n' \
-      "set -euo pipefail" \
-      "pkill -f '[l]ab-request-rate' || true" \
-      "timeout ${duration}s bash -c 'while true; do curl -s -o /dev/null http://${load_balancer_dns}${REQUEST_PATH}; sleep ${request_interval}; done' lab-request-rate || true" \
-      "echo completed request ${phase} phase for cycle ${cycle}")
+    if ((ERROR_FRACTION > 0)); then
+      local error_every
+      error_every=$(awk -v f="$ERROR_FRACTION" 'BEGIN { printf "%d", int((100 + f - 1) / f) }')
+      ((error_every >= 2)) || error_every=2
+      command=$(printf '%s\n' \
+        "set -euo pipefail" \
+        "pkill -f '[l]ab-request-rate' || true" \
+        "timeout ${duration}s bash -c 'n=0; while true; do n=\$((n + 1)); if [ \$((n % ${error_every})) -eq 0 ]; then curl -s -o /dev/null http://${load_balancer_dns}/error; else curl -s -o /dev/null http://${load_balancer_dns}${REQUEST_PATH}; fi; sleep ${request_interval}; done' lab-request-rate || true" \
+        "echo completed request ${phase} phase for cycle ${cycle}")
+    else
+      command=$(printf '%s\n' \
+        "set -euo pipefail" \
+        "pkill -f '[l]ab-request-rate' || true" \
+        "timeout ${duration}s bash -c 'while true; do curl -s -o /dev/null http://${load_balancer_dns}${REQUEST_PATH}; sleep ${request_interval}; done' lab-request-rate || true" \
+        "echo completed request ${phase} phase for cycle ${cycle}")
+    fi
   else
     command=$(cat <<EOF
 set -euo pipefail
@@ -483,7 +498,7 @@ run_stimulus() {
   local cycle
   local request_rate_base=$REQUEST_RATE
 
-  log_step "Configuration: cycles=${CYCLES}, high=${HIGH_DURATION}s, low=${LOW_DURATION}s, cpu=${RUN_CPU}, requests=${RUN_REQUESTS}, request_path=${REQUEST_PATH}, cpu_load=${CPU_LOAD}, low_cpu_load=${LOW_CPU_LOAD}, cpu_workers=${CPU_WORKERS}, request_rate=${REQUEST_RATE}/s, request_rate_multipliers=${REQUEST_RATE_MULTIPLIERS[*]:-none}, high_concurrency=${HIGH_CONCURRENCY}, low_concurrency=${LOW_CONCURRENCY}"
+  log_step "Configuration: cycles=${CYCLES}, high=${HIGH_DURATION}s, low=${LOW_DURATION}s, cpu=${RUN_CPU}, requests=${RUN_REQUESTS}, request_path=${REQUEST_PATH}, error_fraction=${ERROR_FRACTION}%, cpu_load=${CPU_LOAD}, low_cpu_load=${LOW_CPU_LOAD}, cpu_workers=${CPU_WORKERS}, request_rate=${REQUEST_RATE}/s, request_rate_multipliers=${REQUEST_RATE_MULTIPLIERS[*]:-none}, high_concurrency=${HIGH_CONCURRENCY}, low_concurrency=${LOW_CONCURRENCY}"
   for ((cycle = 1; cycle <= CYCLES; cycle++)); do
     if ((${#REQUEST_RATE_MULTIPLIERS[@]} > 0)); then
       REQUEST_RATE=$((request_rate_base * REQUEST_RATE_MULTIPLIERS[cycle - 1]))
@@ -578,6 +593,10 @@ while (($# > 0)); do
       REQUEST_PATH=$2
       shift 2
       ;;
+    --error-fraction)
+      ERROR_FRACTION=$2
+      shift 2
+      ;;
     --high-concurrency)
       HIGH_CONCURRENCY=$2
       shift 2
@@ -618,6 +637,8 @@ require_positive_integer request-count "$REQUEST_COUNT"
 require_nonnegative_integer request-rate "$REQUEST_RATE"
 [[ "$REQUEST_PATH" =~ ^/[A-Za-z0-9._~/-]*$ ]] ||
   fail "request-path must begin with / and contain only URL path characters"
+require_nonnegative_integer error-fraction "$ERROR_FRACTION"
+((ERROR_FRACTION <= 100)) || fail "error-fraction must not exceed 100"
 if ((${#REQUEST_RATE_MULTIPLIERS[@]} > 0)); then
   ((${#REQUEST_RATE_MULTIPLIERS[@]} == CYCLES)) ||
     fail "request-rate-multipliers must contain one multiplier per cycle"
