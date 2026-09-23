@@ -41,13 +41,15 @@ LAB05_REQUEST_HIGH ?= 180
 LAB05_REQUEST_LOW ?= 0
 
 # Lab 06 blends steady demand over the scale-out threshold with a sustained error
-# fraction so scaling behavior and the sustained-error alarm are observed in one run
+# fraction so scaling behavior and the sustained-error alarm are observed in one run.
+# In-situ testing showed the configured fraction dilutes (baseline no-error traffic +
+# per-minute jitter), so 12 (~1-in-9) yields ~8-9% observed, comfortably above the 5% alarm.
 LAB06_REQUEST_RATE ?= 20
 LAB06_REQUEST_RATE_MULTIPLIERS ?= 1 1 1 1
 LAB06_REQUEST_CYCLE_COUNT ?= 4
 LAB06_REQUEST_HIGH ?= 180
 LAB06_REQUEST_LOW ?= 0
-LAB06_ERROR_FRACTION ?= 7
+LAB06_ERROR_FRACTION ?= 12
 
 .DEFAULT_GOAL := help
 
