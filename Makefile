@@ -42,14 +42,12 @@ LAB05_REQUEST_LOW ?= 0
 
 # Lab 06 blends steady demand over the scale-out threshold with a sustained error
 # fraction so scaling behavior and the sustained-error alarm are observed in one run.
-# In-situ testing showed the configured fraction dilutes (baseline no-error traffic +
-# per-minute jitter), so 12 (~1-in-9) yields ~8-9% observed, comfortably above the 5% alarm.
 LAB06_REQUEST_RATE ?= 20
 LAB06_REQUEST_RATE_MULTIPLIERS ?= 1 1 1 1
 LAB06_REQUEST_CYCLE_COUNT ?= 4
 LAB06_REQUEST_HIGH ?= 180
 LAB06_REQUEST_LOW ?= 0
-LAB06_ERROR_FRACTION ?= 12
+LAB06_ERROR_FRACTION ?= 8
 
 .DEFAULT_GOAL := help
 
@@ -179,10 +177,10 @@ lab-06-requests: preflight ## Run the Lab 6 blended request + sustained-error st
 	./load-generator.sh --requests \
 	  --request-rate "$(LAB06_REQUEST_RATE)" \
 	  --request-rate-multipliers "$(LAB06_REQUEST_RATE_MULTIPLIERS)" \
-	  --error-fraction "$(LAB06_ERROR_FRACTION)" \
 	  --cycles "$(LAB06_REQUEST_CYCLE_COUNT)" \
 	  --high-duration "$(LAB06_REQUEST_HIGH)" \
-	  --low-duration "$(LAB06_REQUEST_LOW)"
+	  --low-duration "$(LAB06_REQUEST_LOW)" \
+	  --error-fraction "$(LAB06_ERROR_FRACTION)"
 
 _executable:
 	@chmod +x load-generator.sh
